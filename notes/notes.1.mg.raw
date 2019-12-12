@@ -1,0 +1,1064 @@
+numerek(vlan|x): 4
+firewall ip: 172.30.33.163
+user: lab
+pass: lab123
+
+functional - zone -> management <- interfejs out-of-band
+security - zone - definiowane przez "nas"
+
+
+domyslnie wszystkie interfejsy sa w strefie null
+
+out-of-band
+in-band - do transmisji danych
+
+numeracja interfejsow (junyper)
+fe
+ge
+xe
+t1
+e1
+se - serial
+
+
+numeracja od zera
+fpc - flexible pick concentrator - modul chasis
+    w srodku karty (modulow): PIC | MIC
+
+16 wbudowanych portow 
+ge - 0/0/<numer portu>
+
+jeden port dedykowany do zarzadzania ge - 0/0/0
+
+
+---
+
+
+tryb packet
+tryb flow
+
+interfejsy sa domyslnie wlaczone
+
+---
+
+run - jak "do" w cisco
+
+> show conf
+> show interfaces
+> show interfaces terse - uproszczona informacja
+
+> show security flow statuss
+
+> configure [private]
+
+> load override <file name>
+
+> run show ...
+
+> show|compare
+
+> commit confirmed [liczba_minutre]
+
+> commit - aby ostatecznie zatwierdzic
+
+> run request system reboot
+
+> delete security
+> delete interfaces
+
+? - aby uzyskac podpowiedz w komendzie "... ?" bez TAB
+
+> set interfaces ge-0/0/0 unit 0 family inet address 172.30.33.163/24   
+> set security zones functional-zone management interfaces ge-0/0/0.0
+> set security zones functional-zone management host-inbound-traffic system-services telnet 
+save BEZPIECZENSTWO-J11.10.2019 
+
+lab@163> request system reboot 
+
+
+# LAB 3
+
+> run show security flow status 
+chcemy flow based
+
+`rollback` - wraca do ostatniego commita
+
+> run show configuration system services
+> run show security zones
+
+INTERNET: ge-0/0/1
+KADRY: ge-0/0/2
+
+x__ - 100 vlanow
+
+> set security zones security-zone INTERNET interfaces ge-0/0/1.400
+1.1.x.1/30
+
+> set interfaces ge-0/0/1 vlan-tagging 
+> set interfaces ge-0/0/1 unit 400 vlan-id 400 
+> set interfaces ge-0/0/1.400 vlan-id 400 ||| to samo co wyzej
+> set interfaces ge-0/0/1.400 family inet address 1.1.4.1/30
+
+lab@163# show | compare 
+[edit interfaces]
++   ge-0/0/1 {
++       vlan-tagging;
++       unit 400 {
++           vlan-id 400;
++           family inet {
++               address 1.1.4.1/30;
++           }
++       }
++   }
+[edit security zones]
++    security-zone INTERNET {
++        interfaces {
++            ge-0/0/1.400;
++        }
++    }
+
+## .138 - w sieci INTERNET
+### Konfikuracja koncowki:
+> configure private
+[edit]
+lab@138# set interfaces ge-0/0/1 vlan-tagging 
+
+[edit]
+lab@138# set interfaces ge-0/0/1.400 vlan-id 400   
+
+[edit]
+lab@138# set interfaces ge-0/0/1.400 family inet address 1.1.4.2/30
+
+[edit]
+lab@138# show | compare 
+[edit interfaces]
++   ge-0/0/1 {
++       vlan-tagging;
++       unit 400 {
++           vlan-id 400;
++       }
++   }
+
+### Konfig wirtualnego routera:
+
+[edit]
+lab@138# set routing-instances SERWER4 instance-type virtual-router 
+
+[edit]
+lab@138# set routing-instances SERWER4 interface ge-0/0/1.400 
+
+[edit]
+lab@138# show | compare 
+[edit interfaces]
++   ge-0/0/1 {
++       vlan-tagging;
++       unit 400 {
++           vlan-id 400;
++       }
++   }
+[edit]
++  routing-instances {
++      SERWER4 {
++          instance-type virtual-router;
++          interface ge-0/0/1.400;
++      }
++  }
+
+[edit]
+lab@138# set routing-instances SERWER4 routing-options static route 0/0 next-hop 1.1.4.1    
+
+lab@163# set security zones security-zone INTERNET interfaces ge-0/0/1.400 host-inbound-traffic system-services ping  
+
+# LAB 5 | Polityki
+
+kontekst??
+
+najpierw dodac addressbooki
+
+lab@163# set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match source-address any        
+lab@163# ...security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match destination-address any    
+lab@163# ...rity policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match application junos-icmp-ping    
+lab@163# ...rity policies from-zone KADRY to-zone INTERNET policy POLITYKA1 then permit
+
+- permit
+- deny
+- reject
+
+# LAB 6
+
+PaloAlto aktualnie firewalle, potem Checkpoint
+Diagram gartnera dla firewalli
+
+lab@163# run show configuration routing-instances
+
+lab@139> show route table KOMP-KADRY-4  
+lab@139# set routing-instances KOMP-KADRY-4 routing-options static route 0/0 next-hop 192.168.4.1 
+
+lab@139# run show interfaces terse                                                                   
+
+lab@139# rename interfaces ge-0/0/1 unit 400 to unit 401                                             
+lab@139# set interfaces ge-0/0/1 unit 401 vlan-id 401 
+
+lab@139# delete routing-instances KOMP-KADRY-4 interface ge-0/0/1.400 
+
+lab@139# set routing-instances KOMP-KADRY-4 interface ge-0/0/1.401  
+
+lab@139# run ping 1.1.4.2 routing-instance KOMP-KADRY-4  
+
+lab@139# run telnet 1.1.4.2 port 80 routing-instance KOMP-KADRY-4  
+
+lab@163# set security zones security-zone KADRY address-bookadd KOMP-KADRY-ADD192.168.4.10  
+                                              ^
+syntax error.
+lab@163# ... KADRY address-book address KOMP-KADRY-ADD192.168.4.10 192.168.4.10/32       
+
+lab@163# ...olicies from-zone KADRY to-zone INTERNET policy POLITYKAHTTP match source-address ?                  
+Possible completions:
+  192.168.4.10/32      Address from address book
+  KOMP-KADRY-ADD192.168.4.10  The address in address book 
+  [                    Open a set of values
+  any                  Any IPv4 or IPv6 address
+  any-ipv4             Any IPv4 address
+  any-ipv6             Any IPv6 address
+[edit]
+lab@163# ...ne INTERNET policy POLITYKAHTTP match source-address KOMP-KADRY-ADD192.168.4.10  
+
+[edit]
+lab@163# ...urity policies from-zone KADRY to-zone INTERNET policy POLITYKAHTTP match destination-address any    
+
+[edit]
+lab@163# ...curity policies from-zone KADRY to-zone INTERNET policy POLITYKAHTTP match application junos-http    
+
+[edit]
+lab@163# ...curity policies from-zone KADRY to-zone INTERNET policy POLITYKAHTTP pe                              
+                                                                                 ^
+syntax error.
+lab@163# ...curity policies from-zone KADRY to-zone INTERNET policy POLITYKAHTTP then permit
+
+
+lab@163# show|compare                                                                             
+[edit security policies]
+     from-zone KADRY to-zone INTERNET { ... }
++    from-zone INTERNET to-zone KADRY {
++        policy POLITYKAFTP {
++            match {
++                source-address 1.1.4.2;
++                destination-address KOMP-KADRY-ADD192.168.4.10;
++                application junos-ftp;
++            }
++            then {
++                permit;
++            }
++        }
++    }
+[edit security zones security-zone INTERNET]
++     address-book {
++         address 1.1.4.2 1.1.4.2/32;
++     }
+
+
+lab@163# run show security policies 
+Default policy: deny-all
+From zone: KADRY, To zone: INTERNET
+  Policy: POLITYKA1, State: enabled, Index: 4, Scope Policy: 0, Sequence number: 1
+    Source addresses: any
+    Destination addresses: any
+    Applications: junos-icmp-ping
+    Action: permit
+  Policy: POLITYKAHTTP, State: enabled, Index: 5, Scope Policy: 0, Sequence number: 2
+    Source addresses: KOMP-KADRY-ADD192.168.4.10
+    Destination addresses: any
+    Applications: junos-http
+    Action: permit
+From zone: INTERNET, To zone: KADRY
+  Policy: POLITYKAFTP, State: enabled, Index: 6, Scope Policy: 0, Sequence number: 1
+    Source addresses: 1.1.4.2
+    Destination addresses: KOMP-KADRY-ADD192.168.4.10
+    Applications: junos-ftp
+    Action: permit
+
+# LAB 7
+
+ELASTIC - narzędzie do analizy ruchu (bardzo dobre)
+SIEM - narzedzia siemowskie, analiza logow, System Information and Event Mamanegement
+
+lab@163# run show security flow session            
+Session ID: 76, Policy name: self-traffic-policy/1, Timeout: 1800, Valid
+  In: 172.30.33.68/60664 --> 172.30.33.163/23;tcp, If: ge-0/0/0.0, Pkts: 1062, Bytes: 55972
+  Out: 172.30.33.163/23 --> 172.30.33.68/60664;tcp, If: .local..0, Pkts: 715, Bytes: 58560
+
+Session ID: 987, Policy name: POLITYKA1/4, Timeout: 2, Valid
+  In: 192.168.4.10/39 --> 1.1.4.2/18457;icmp, If: ge-0/0/2.401, Pkts: 1, Bytes: 84
+  Out: 1.1.4.2/18457 --> 192.168.4.10/39;icmp, If: ge-0/0/1.400, Pkts: 1, Bytes: 84
+
+Session ID: 988, Policy name: POLITYKA1/4, Timeout: 2, Valid
+  In: 192.168.4.10/40 --> 1.1.4.2/18457;icmp, If: ge-0/0/2.401, Pkts: 1, Bytes: 84
+  Out: 1.1.4.2/18457 --> 192.168.4.10/40;icmp, If: ge-0/0/1.400, Pkts: 1, Bytes: 84
+
+Session ID: 989, Policy name: POLITYKA1/4, Timeout: 4, Valid
+  In: 192.168.4.10/41 --> 1.1.4.2/18457;icmp, If: ge-0/0/2.401, Pkts: 1, Bytes: 84
+  Out: 1.1.4.2/18457 --> 192.168.4.10/41;icmp, If: ge-0/0/1.400, Pkts: 1, Bytes: 84
+Total sessions: 4
+
+
+lab@163# set system syslog file TRAFFIC_LOG user any    
+
+lab@163# set system syslog file TRAFFIC_LOG match "RT_FLOW" 
+
+lab@163# set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 then log session-close session-init
+
+lab@163# run file list /var/log    
+
+lab@163# run file delete /var/log/TRAFFIC_LOG   
+lab@163# run show log TRAFFIC_LOG                
+error: could not resolve file: TRAFFIC_LOG
+
+lab@163# set system syslog user * any any    
+
+## Dodawanie polityki "domyslnej"
+
+[edit]
+lab@163# set security policies from-zone KADRY to-zone INTERNET policy DOMYSLNA match source-address any destination-address any application any    
+[edit]
+lab@163# set security policies from-zone KADRY to-zone INTERNET policy DOMYSLNA then deny                                                           
+[edit]
+lab@163# set security policies from-zone KADRY to-zone INTERNET policy DOMYSLNA then log session-init  
+
+## Zamiana kolejnosci polityk
+
+lab@163# insert security policies from-zone KADRY to-zone INTERNET policy DOMYSLNA <before|after> policy POLITYKA1    
+
+# LAB 8
+
+[edit]
+lab@163# run ping 192.168.4.10    
+PING 192.168.4.10 (192.168.4.10): 56 data bytes
+^C
+--- 192.168.4.10 ping statistics ---
+2 packets transmitted, 0 packets received, 100% packet loss
+
+```
+[edit]
+lab@163# run show interfaces terse    
+Interface               Admin Link Proto    Local                 Remote
+ge-0/0/0                up    up  
+ge-0/0/0.0              up    up   inet     172.30.33.163/24
+gr-0/0/0                up    up  
+ip-0/0/0                up    up  
+lsq-0/0/0               up    up  
+lt-0/0/0                up    up  
+mt-0/0/0                up    up  
+sp-0/0/0                up    up  
+sp-0/0/0.0              up    up   inet    
+sp-0/0/0.16383          up    up   inet     10.0.0.1            --> 10.0.0.16
+                                            10.0.0.6            --> 0/0
+                                            128.0.0.1           --> 128.0.1.16
+                                            128.0.0.6           --> 0/0
+ge-0/0/1                up    up  
+ge-0/0/1.400            up    up   inet     1.1.4.1/30      
+ge-0/0/1.32767          up    up  
+ge-0/0/2                up    up  
+ge-0/0/2.401            up    up   inet     192.168.4.1/24  
+ge-0/0/2.32767          up    up  
+ge-0/0/3                up    down
+ge-0/0/4                up    down
+ge-0/0/5                up    down
+ge-0/0/6                up    down
+ge-0/0/7                up    down
+ge-0/0/8                up    down
+ge-0/0/9                up    down
+ge-0/0/10               up    down
+ge-0/0/11               up    down
+ge-0/0/12               up    down
+ge-0/0/13               up    down
+ge-0/0/14               up    down
+ge-0/0/15               up    down
+fxp2                    up    up  
+fxp2.0                  up    up   tnp      0x1             
+gre                     up    up  
+ipip                    up    up  
+irb                     up    up  
+lo0                     up    up  
+lo0.16384               up    up   inet     127.0.0.1           --> 0/0
+lo0.16385               up    up   inet     10.0.0.1            --> 0/0
+                                            10.0.0.16           --> 0/0
+                                            128.0.0.1           --> 0/0
+                                            128.0.1.16          --> 0/0
+lo0.32768               up    up  
+lsi                     up    up  
+mtun                    up    up  
+pimd                    up    up  
+pime                    up    up  
+pp0                     up    up  
+ppd0                    up    up  
+ppe0                    up    up  
+st0                     up    up  
+tap                     up    up  
+vlan                    up    up  
+
+```
+
+lab@163# run show configuration groups junos-defaults    
+lab@163# run show configuration groups junos-defaults applications
+
+lab@163# set applications ?
+Possible completions:
+> application          Define an application
+> application-set      Define an application set
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+
+lab@163# set applications application XRX-1 protocol tcp 
+lab@163# set applications application XRX-1 destination-port 25 
+lab@163# show|compare         
+[edit]
++  applications {
++      application XRX-1 {
++          protocol tcp;
++          destination-port 25;
++      }
++  }
+
+lab@163# set applications application XRX-2 protocol tcp 
+lab@163# set applications application XRX-2 destination-port 21 
+lab@163# show|compare                                              
+[edit]
++  applications {
++      application XRX-1 {
++          protocol tcp;
++          destination-port 25;
++      }
++      application XRX-2 {
++          protocol tcp;
++          destination-port 21;
++      }
++  }
+    
+lab@163# set applications application-set MOJE-XRX application XRX-1    
+lab@163# set applications application-set MOJE-XRX application XRX-2
+   
+lab@163# set applications application-set MOJE-XRX application XRX-1,XRX-2   
+
+lab@163# show|compare                                                   
+[edit]
++  applications {
++      application XRX-1 {
++          protocol tcp;
++          destination-port 25;
++      }
++      application XRX-2 {
++          protocol tcp;
++          destination-port 21;
++      }
++      application-set MOJE-XRX {
++          application XRX-1;
++          application XRX-2;
++      }
++  }
+
+lab@163# show|compare                                                                 
+[edit]
++  applications {
++      application XRX-1 {
++          protocol tcp;
++          destination-port 25;
++      }
++      application XRX-2 {
++          protocol tcp;
++          destination-port 21;
++      }
++      application-set MOJE-XRX {
++          application XRX-1;
++          application XRX-2;
++      }
++      application-set STANDARD-APP {
++          application junos-ftp;
++          application junos-http;
++          application junos-https;
++          application junos-ssh;
++      }
++  }
+
+lab@163# run show security flow session    
+Session ID: 32, Policy name: self-traffic-policy/1, Timeout: 1800, Valid
+  In: 172.30.33.77/54692 --> 172.30.33.163/23;tcp, If: ge-0/0/0.0, Pkts: 2795, Bytes: 147991
+  Out: 172.30.33.163/23 --> 172.30.33.77/54692;tcp, If: .local..0, Pkts: 1916, Bytes: 331637
+Total sessions: 1
+
+lab@163# run show security policies                                                   
+Default policy: deny-all
+From zone: KADRY, To zone: INTERNET
+  Policy: DOMYSLNA, State: enabled, Index: 4, Scope Policy: 0, Sequence number: 1
+    Source addresses: any
+    Destination addresses: any
+    Applications: any
+    Action: deny, log
+  Policy: POLITYKA1, State: enabled, Index: 5, Scope Policy: 0, Sequence number: 2
+    Source addresses: any
+    Destination addresses: any
+    Applications: junos-icmp-ping
+    Action: permit, log
+  Policy: POLITYKAHTTP, State: enabled, Index: 6, Scope Policy: 0, Sequence number: 3
+    Source addresses: KOMP-KADRY-ADD192.168.4.10
+    Destination addresses: any
+    Applications: junos-http
+    Action: permit
+From zone: INTERNET, To zone: KADRY
+  Policy: POLITYKAFTP, State: enabled, Index: 7, Scope Policy: 0, Sequence number: 1
+    Source addresses: 1.1.4.2
+    Destination addresses: KOMP-KADRY-ADD192.168.4.10
+    Applications: junos-ftp
+    Action: permit
+
+lab@163# save BEZPIECZENSTWO-J29.11.2019    
+Wrote 170 lines of configuration to 'BEZPIECZENSTWO-J29.11.2019'
+
+
+## NAT (Network Address Translation)
+
+
+# LAB 9 NAT
+
+lab@163# set security nat ?
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> destination          Configure Destination NAT
+> proxy-arp            Configure Proxy ARP
+> proxy-ndp            Configure Proxy NDP
+> source               Configure Source NAT
+> static               Configure Static NAT
+> traceoptions         NAT trace options
+
+
+lab@163# set security nat static rule-set KADRY-INTERNET ?
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> from                 Where is the traffic from
+> rule                 Static NAT rule
+
+lab@163# set security nat static rule-set KADRY-INTERNET from zone KADRY 
+
+lab@163# set security nat static rule-set KADRY-INTERNET rule KADRY match ?    
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> destination-address  Destination address
+> destination-address-name  Address from address book
+
+lab@163# set security nat static rule-set KADRY-INTERNET rule KADRY match destination-address 1.1.4.0/24  
+
+lab@163# set security nat static rule-set KADRY-INTERNET rule KADRY then ?                                  
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> static-nat           Static NAT action
+
+lab@163# delete security nat static                                                         
+
+## POWYZEJ ZLE BO NIE TO CO TRZEBA
+
+lab@163# set security nat source rule-set KADRY-INTERNET ?                                                  
+Possible completions:
+> rule                 Source NAT rule
+> from                 Where is the traffic from
+> to                   Where is the traffic to
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET from zio                                                                         
+                                                              ^
+syntax error.
+lab@163# set security nat source rule-set KADRY-INTERNET from zi    
+                                                              ^
+syntax error.
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY match destination-address 1.1.4.0/24 
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET from zone KADRY                                    
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET to zone INTERNET   
+
+[edit]
+lab@163# show|compare 
+[edit security]
++   nat {
++       source {
++           rule-set KADRY-INTERNET {
++               from zone KADRY;
++               to zone INTERNET;
++               rule KADRY {
++                   match {
++                       destination-address 1.1.4.0/24;
++                   }
++                   ## Warning: missing mandatory statement(s): 'then'
++               }
++           }
++       }
++   }
+
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY then ?   
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> source-nat           Source NAT action
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY then source-nat ?           
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> interface            Use egress interface address
+  off                  No action
+> pool                 Use Source NAT pool
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY then source-nat interface ? 
+Possible completions:
+  <[Enter]>            Execute this command
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> persistent-nat       Persistent NAT info
+  |                    Pipe through a command
+
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY then source-nat interface    
+
+[edit]
+lab@163# show|compare                                                                            
+[edit security]
++   nat {
++       source {
++           rule-set KADRY-INTERNET {
++               from zone KADRY;
++               to zone INTERNET;
++               rule KADRY {
++                   match {
++                       destination-address 1.1.4.0/24; // 32 zawiera sie w 24
++                   }
++                   then {
++                       source-nat {
++                           interface;
++                       }
++                   }
++               }
++           }
++       }
++   }
+
+lab@163# run show security nat source summary 
+Total pools: 0
+
+Total rules: 1
+Rule name          Rule set       From              To                   Action
+KADRY              KADRY-INTERNET KADRY             INTERNET             interface
+
+lab@163# run show security nat source rule all 
+Total rules: 1
+Total referenced IPv4/IPv6 ip-prefixes: 1/0
+ 
+source NAT rule: KADRY                Rule-set: KADRY-INTERNET 
+  Rule-Id                    : 1  
+  Rule position              : 1
+  From zone                  : KADRY
+  To zone                    : INTERNET
+    Destination addresses    : 1.1.4.0         - 1.1.4.255
+    Destination port         : 0               - 0
+  Action                        : interface 
+    Persistent NAT type         : N/A              
+    Persistent NAT mapping type : address-port-mapping 
+    Inactivity timeout          : 0
+    Max session number          : 0 
+  Translation hits           : 0
+
+lab@138# set interfaces ge-0/0/1 unit 400 family inet address 7.7.4.5/24 
+
+lab@163# run show route 
+
+inet.0: 6 destinations, 6 routes (6 active, 0 holddown, 0 hidden)
++ = Active Route, - = Last Active, * = Both
+
+1.1.4.0/30         *[Direct/0] 00:33:24
+                    > via ge-0/0/1.400
+1.1.4.1/32         *[Local/0] 01:06:15
+                      Local via ge-0/0/1.400
+172.30.33.0/24     *[Direct/0] 01:06:08
+                    > via ge-0/0/0.0
+172.30.33.163/32   *[Local/0] 01:06:16
+                      Local via ge-0/0/0.0
+192.168.4.0/24     *[Direct/0] 00:33:20
+                    > via ge-0/0/2.401
+192.168.4.1/32     *[Local/0] 01:06:15
+                      Local via ge-0/0/2.401
+
+lab@163# delete routing-options           
+lab@163# set routing-options static route 0/0 next-hop 192.168.4.1 
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 match destination-?  
+Possible completions:
++ destination-address  Destination address
++ destination-address-name  Address/address-set from address book
+> destination-port     Destination port
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 match destination-address 7.7.4.0/29 
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 then ?                                  
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> source-nat           Source NAT action
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat ?                           
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> interface            Use egress interface address
+  off                  No action
+> pool                 Use Source NAT pool
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat pool POOL-7.7.4.0/29 
+
+lab@163# set security nat source pool ?   
+Possible completions:
+  <pool-name>          Pool name
+[edit]
+lab@163# set security nat source pool POOL-7.7.10.0/29 ?                                                      
+Possible completions:
+> address              Add address to pool
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> host-address-base    The base of host address
+> overflow-pool        Specify an overflow pool
+> port                 Config port attribute to pool
+> routing-instance     Routing instance
+[edit]
+lab@163# set security nat source pool POOL-7.7.10.0/29 address 2.2.4.5/32 
+error: pool-name: 'POOL-7.7.10.0/29': Must be a string beginning with a number or letter and consisting of letters, numbers, dashes and underscores.
+error: statement creation failed: pool
+
+[edit]
+lab@163# set security nat source pool POOL-7_7_10_0/29 address 2.2.4.5/32    
+error: pool-name: 'POOL-7_7_10_0/29': Must be a string beginning with a number or letter and consisting of letters, numbers, dashes and underscores.
+error: statement creation failed: pool
+
+[edit]
+lab@163# set security nat source pool POOL-7_7_10_0_29 address 2.2.4.5/32    
+
+[edit]
+lab@163# delete security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat pool POOL-7.7.4.0/29 
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat pool POOL-7_7_10_0_29 
+
+lab@163# show|compare 
+[edit security nat source]
++     pool POOL-7_7_10_0_29 {
++         address {
++             2.2.4.5/32;
++         }
++     }
+[edit security nat source rule-set KADRY-INTERNET]
+       rule KADRY { ... }
++      rule KADRY-1 {
++          match {
++              destination-address 7.7.4.0/29;
++          }
++          then {
++              source-nat {
++                  pool {
++                      POOL-7_7_10_0_29;
++                  }
++              }
++          }
++      }
+
+
+lab@163# run show route                                                     
+
+inet.0: 6 destinations, 6 routes (6 active, 0 holddown, 0 hidden)
++ = Active Route, - = Last Active, * = Both
+
+1.1.4.0/30         *[Direct/0] 00:41:47
+                    > via ge-0/0/1.400
+1.1.4.1/32         *[Local/0] 01:14:38
+                      Local via ge-0/0/1.400
+172.30.33.0/24     *[Direct/0] 01:14:31
+                    > via ge-0/0/0.0
+172.30.33.163/32   *[Local/0] 01:14:39
+                      Local via ge-0/0/0.0
+192.168.4.0/24     *[Direct/0] 00:41:43
+                    > via ge-0/0/2.401
+192.168.4.1/32     *[Local/0] 01:14:38
+                      Local via ge-0/0/2.401
+
+[edit]
+lab@163# run show interfaces terse 
+Interface               Admin Link Proto    Local                 Remote
+ge-0/0/0                up    up  
+ge-0/0/0.0              up    up   inet     172.30.33.163/24
+gr-0/0/0                up    up  
+ip-0/0/0                up    up  
+lsq-0/0/0               up    up  
+lt-0/0/0                up    up  
+mt-0/0/0                up    up  
+sp-0/0/0                up    up  
+sp-0/0/0.0              up    up   inet    
+sp-0/0/0.16383          up    up   inet     10.0.0.1            --> 10.0.0.16
+                                            10.0.0.6            --> 0/0
+                                            128.0.0.1           --> 128.0.1.16
+                                            128.0.0.6           --> 0/0
+ge-0/0/1                up    up  
+ge-0/0/1.400            up    up   inet     1.1.4.1/30      
+ge-0/0/1.32767          up    up  
+ge-0/0/2                up    up  
+ge-0/0/2.401            up    up   inet     192.168.4.1/24  
+ge-0/0/2.32767          up    up  
+ge-0/0/3                up    down
+ge-0/0/4                up    down
+ge-0/0/5                up    down
+ge-0/0/6                up    down
+ge-0/0/7                up    down
+ge-0/0/8                up    down
+ge-0/0/9                up    down
+ge-0/0/10               up    down
+ge-0/0/11               up    down
+ge-0/0/12               up    down
+ge-0/0/13               up    down
+ge-0/0/14               up    down
+ge-0/0/15               up    down
+fxp2                    up    up  
+fxp2.0                  up    up   tnp      0x1             
+gre                     up    up  
+ipip                    up    up  
+irb                     up    up  
+lo0                     up    up  
+lo0.16384               up    up   inet     127.0.0.1           --> 0/0
+lo0.16385               up    up   inet     10.0.0.1            --> 0/0
+                                            10.0.0.16           --> 0/0
+                                            128.0.0.1           --> 0/0
+                                            128.0.1.16          --> 0/0
+lo0.32768               up    up  
+lsi                     up    up  
+mtun                    up    up  
+pimd                    up    up  
+pime                    up    up  
+pp0                     up    up  
+ppd0                    up    up  
+ppe0                    up    up  
+st0                     up    up  
+tap                     up    up  
+vlan                    up    up  
+
+[edit]
+lab@163# delete routing-options static route 0.0.0.0/0 next-hop 192.168.4.1   
+
+[edit]
+lab@163# show|compare                                                          
+[edit]
+-  routing-options {
+-      static {
+-          route 0.0.0.0/0 next-hop 192.168.4.1;
+-      }
+-  }
+
+[edit]
+lab@163# set routing-options static route 0.0.0.0/0 next-hop 1.1.4.2                 
+
+[edit]
+lab@163# show|compare                                                   
+[edit routing-options static]
+-    route 0.0.0.0/0 next-hop 192.168.4.1;
++    route 0.0.0.0/0 next-hop 1.1.4.2;
+
+[edit]
+lab@163# commit 
+
+commit complete
+
+[edit]
+lab@163# 
+
+[edit]
+lab@163# 
+
+[edit]
+lab@163# run show route                                                        
+
+inet.0: 7 destinations, 7 routes (7 active, 0 holddown, 0 hidden)
++ = Active Route, - = Last Active, * = Both
+
+0.0.0.0/0          *[Static/5] 00:00:13
+                    > to 1.1.4.2 via ge-0/0/1.400
+1.1.4.0/30         *[Direct/0] 00:46:16
+                    > via ge-0/0/1.400
+1.1.4.1/32         *[Local/0] 01:19:07
+                      Local via ge-0/0/1.400
+172.30.33.0/24     *[Direct/0] 01:19:00
+                    > via ge-0/0/0.0
+172.30.33.163/32   *[Local/0] 01:19:08
+                      Local via ge-0/0/0.0
+192.168.4.0/24     *[Direct/0] 00:46:12
+                    > via ge-0/0/2.401
+192.168.4.1/32     *[Local/0] 01:19:07
+                      Local via ge-0/0/2.401
+
+[edit]
+lab@163# show security sess
+                       ^
+syntax error.
+lab@163# run show seecu       
+                  ^
+syntax error, expecting <command>.
+lab@163# run show security sess             
+                           ^
+syntax error, expecting <command>.
+lab@163# run show security ?        
+Possible completions:
+  alarms               Show active security alarm information
+  alg                  Show ALG security services information
+  application-firewall  Show security application firewall policies
+  application-tracking  Show Application tracking information
+  dynamic-policies     Show security firewall dynamic policies
+  dynamic-vpn          Show Dynamic VPN Remote Access information
+  firewall-authentication  Show firewall authentication tables, information
+  flow                 Show flow information
+  group-vpn            Show Group VPN Security information
+  idp                  Show Intrusion Detection and Prevention information
+  ike                  Show Internet Key Exchange information
+  ipsec                Show IP Security information
+  keychain             Show all protocols keychain
+  log                  Show auditable security log information
+  match-policies       Show security match policies
+  monitoring           Show security SPU monitoring information
+  nat                  Show Network Address Translation information
+  pki                  Show public-key infrastructure information
+  policies             Show security firewall policies
+  resource-manager     Show resource manager security services information
+  screen               Show screen service information
+  softwires            Show softwire information
+  utm                  Show security utm information
+  zones                Show security zone information
+[edit]
+lab@163# run show security nat source rule all 
+Total rules: 1
+Total referenced IPv4/IPv6 ip-prefixes: 1/0
+ 
+source NAT rule: KADRY                Rule-set: KADRY-INTERNET 
+  Rule-Id                    : 1  
+  Rule position              : 1
+  From zone                  : KADRY
+  To zone                    : INTERNET
+    Destination addresses    : 1.1.4.0         - 1.1.4.255
+    Destination port         : 0               - 0
+  Action                        : interface 
+    Persistent NAT type         : N/A              
+    Persistent NAT mapping type : address-port-mapping 
+    Inactivity timeout          : 0
+    Max session number          : 0 
+  Translation hits           : 0
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 match destination-?  
+Possible completions:
++ destination-address  Destination address
++ destination-address-name  Address/address-set from address book
+> destination-port     Destination port
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 match destination-address 7.7.4.0/29 
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 then ?                                  
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> source-nat           Source NAT action
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat ?                           
+Possible completions:
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> interface            Use egress interface address
+  off                  No action
+> pool                 Use Source NAT pool
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat pool POOL-7.7.4.0/29 
+
+[edit]
+lab@163# set sesu
+             ^
+syntax error.
+lab@163# set security nat source pool ?   
+Possible completions:
+  <pool-name>          Pool name
+[edit]
+lab@163# set security nat source pool POOL-7.7.10.0/29 ?                                                      
+Possible completions:
+> address              Add address to pool
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+> host-address-base    The base of host address
+> overflow-pool        Specify an overflow pool
+> port                 Config port attribute to pool
+> routing-instance     Routing instance
+[edit]
+lab@163# set security nat source pool POOL-7.7.10.0/29 address 2.2.4.5/32 
+error: pool-name: 'POOL-7.7.10.0/29': Must be a string beginning with a number or letter and consisting of letters, numbers, dashes and underscores.
+error: statement creation failed: pool
+
+[edit]
+lab@163# set security nat source pool POOL-7_7_10_0/29 address 2.2.4.5/32    
+error: pool-name: 'POOL-7_7_10_0/29': Must be a string beginning with a number or letter and consisting of letters, numbers, dashes and underscores.
+error: statement creation failed: pool
+
+[edit]
+lab@163# set security nat source pool POOL-7_7_10_0_29 address 2.2.4.5/32    
+
+[edit]
+lab@163# delete security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat pool POOL-7.7.4.0/29 
+
+[edit]
+lab@163# set security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat pool POOL-7_7_10_0_29       
+
+[edit]
+lab@163# show|compare 
+[edit security nat source]
++     pool POOL-7_7_10_0_29 {
++         address {
++             2.2.4.5/32;
++         }
++     }
+[edit security nat source rule-set KADRY-INTERNET]
+       rule KADRY { ... }
++      rule KADRY-1 {
++          match {
++              destination-address 7.7.4.0/29;
++          }
++          then {
++              source-nat {
++                  pool {
++                      POOL-7_7_10_0_29;
++                  }
++              }
++          }
++      }
+
+[edit]
+lab@163# commit 
+commit complete
+
+[edit]
+lab@163# run show security flow session 
+Session ID: 656, Policy name: self-traffic-policy/1, Timeout: 1800, Valid
+  In: 172.30.33.77/42242 --> 172.30.33.163/23;tcp, If: ge-0/0/0.0, Pkts: 4214, Bytes: 223066
+  Out: 172.30.33.163/23 --> 172.30.33.77/42242;tcp, If: .local..0, Pkts: 2708, Bytes: 207413
+Total sessions: 1
+
+
+
