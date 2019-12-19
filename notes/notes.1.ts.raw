@@ -1,0 +1,179 @@
+25.10.2019
+ 
+lab@164# run show configuration interfaces                                  
+ge-0/0/0 {
+    unit 0 {
+        family inet {
+            address 172.30.33.164/24;
+        }
+    }
+}
+ge-0/0/1 {
+    vlan-tagging;
+    unit 500 {
+        vlan-id 500;
+        family inet {
+            address 1.1.5.1/30;
+        }
+    }
+}
+ge-0/0/2 {
+    vlan-tagging;
+    unit 501 {
+        vlan-id 501;
+        family inet {
+            address 192.168.5.1/24;
+        }
+    }
+}
+ 
+ 
+KOMP-KADRY
+ 
+> configure private
+lab@139# > set interfaces ge-0/0/1 vlan-tagging
+lab@139# > set interfaces ge-0/0/1 unit 501 vlan-id 501
+lab@139# > set interfaces ge-0/0/1 unit 501 family inet address 192.168.5.10/24
+> commit
+ 
+ 
+set routing-instances KOMP-KADRY-5 instance-type virtual-router
+set routing-instances KOMP-KADRY-5 interface ge-0/0/1.501
+lab@139# set routing-instances KOMP-KADRY-5 routing-options static route 0/0 next-hop 192.168.5.1
+ 
+Pingowanie do firewalla
+> run ping 1.1.6.1 routing-instances SERWER6
+ 
+Pingowanie
+> run ping 1.1.6.2
+ 
+Konfiguracja odpowiedzi firewalla
+lab@164# > set security zones security-zone KADRY interfaces ge-0/0/2.501 host-inbound-traffic system-services ping
+ 
+07.11.19
+Polityki
+ 
+> run show security policies
+ 
+Wyswietlenie konfiguracji dla polityk
+> run show configuration security policies
+ 
+STREFA ŹRÓDŁOWA => STREFA DOCELOWA
+polityka bezpieczeństwa
+ 
+Warunki:
+S-IP
+D-IP
+applicaton(port, protokol)
+ 
+Akcja:
+permit
+reject - komunikat iemp jest wysylany
+deny - ruch odrzucony
+ 
+ 
+S-ZONE D-ZONE   S-IP    D-IP    application     action      nazwa
+KADRY INTERNET  any     deny    ping            permit      POLITYKA1
+ 
+> set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match source-address any
+> set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match destination-address any
+> set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match application junos-icmp-ping
+> set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 then permit
+ 
+Pingowanie z 139
+> run ping 1.1.5.2 routing-instance KOMP-KADRY-5
+ 
+ 
+> telnet 172.30.33.164
+ 
+Pingowanie na port 80
+> run telnet 1.1.5.2 port 80 routing-instance KOMP-KADRY-5
+ 
+set security zones security-zone KADRY address-book address KOMP-KADRY-ADD192.168.5.10 192.168.5.10/32
+ 
+ 
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA2 match source-address KOMP-KADRY-ADD192.168.5.10
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA2 match destination-address any
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA2 match application junos-http
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA2 then permit
+ 
+ 
+Sesje
+> run show security flow session
+ 
+ 
+logi
+set system syslog file TRAFFIC_LOG user any
+set system syslog file TRAFFIC_LOG match "RT_FLOW"
+ 
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 then log session-init
+ 
+run file list /var/log  
+ 
+set system syslog user * any any
+ 
+INTERNET 1.1.x.2
+ 
+KADRY
+192.168.X.0/22
+ 
+> run request system reboot
+ 
+> run show configuration groups junos-defaults
+> set applications application XRX1 protocol tcp
+> set applications application XRX1 destination-port 25
+> set applications application XRX2 protocol tcp
+> set applications application XRX2 destination-port 21
+> set applications application-set MOJE-XRX application XRX1
+> set applications application-set MOJE-XRX application XRX2
+> run show security flow session
+ 
+Nat
+> set security nat source rule-set KADRY-INTERNET from zone KADRY
+> set security nat source rule-set KADRY-INTERNET to zone INTERNET
+> set security nat source rule-set KADRY-INTERNET rule KADRY match destination-address 1.1.5.0/24
+set security nat source rule-set KADRY-INTERNET rule KADRY then source-nat interface
+ 
+run show security nat source rule all
+ 
+run show security policies
+ 
+Na 138
+set interfaces ge-0/0/1 unit 500 family inet address 7.7.5.5/24
+ 
+Na 139
+run ping 7.7.5.5 routing-instance KOMP-KADRY-5
+ 
+set routing-options static route 0/0 next-hop 192.168.5.1
+ 
+set security nat source rule-set KADRY-INTERNET rule KADRY-1
+set security nat source rule-set KADRY-INTERNET rule KADRY-1 match destination-address 7.7.5.0/29
+set security nat source pool POOL-7_7_5_0 address 2.2.5.5/32
+set security nat source rule-set KADRY-INTERNET rule KADRY-1 then source-nat pool POOL-7_7_5_0
+ 
+[edit security nat source]
++     pool POOL-7_7_5_0 {
++         address {
++             2.2.5.5/32;
++         }
++     }
+[edit security nat source rule-set KADRY-INTERNET]
+       rule KADRY { ... }
++      rule KADRY-1 {
++          match {
++              destination-address 7.7.5.0/29;
++          }
++          then {
++              source-nat {
++                  pool {
++                      POOL-7_7_5_0;
++                  }
++              }
++          }
++      }
+ 
+run ping 7.7.5.5 routing-instance KOMP-KADRY-5
+jeszcze telnet port 80 powinno dzialac
+ 
+ 
+PROXY ARP

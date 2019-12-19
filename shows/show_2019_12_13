@@ -1,0 +1,191 @@
+lab@163> show security nat source pool all 
+Total pools: 1
+ 
+Pool name          : POOL-7_7_10_0_29
+Pool id            : 4
+Routing instance   : default
+Host address base  : 0.0.0.0
+Port               : [1024, 63487] 
+port overloading   : 1
+Total addresses    : 1
+Translation hits   : 0
+Address range                        Single Ports   Twin Ports 
+            2.2.4.5 - 2.2.4.5            0              0    
+
+lab@163> show security nat source pool ?      
+Possible completions:
+  <pool-name>          Address-pool name
+  POOL-7_7_10_0_29     
+  all                  Display all source NAT pool information
+lab@163> show security nat source pool POOL-7_7_10_0_29 
+ 
+Pool name          : POOL-7_7_10_0_29
+Pool id            : 4
+Routing instance   : default
+Host address base  : 0.0.0.0
+Port               : [1024, 63487] 
+port overloading   : 1
+Total addresses    : 1
+Translation hits   : 0
+Address range                        Single Ports   Twin Ports 
+            2.2.4.5 - 2.2.4.5            0              0    
+
+lab@163> shwo
+         ^
+unknown command.
+lab@163> show condi
+              ^
+syntax error, expecting <command>.
+lab@163> show configuration interfaces    
+ge-0/0/0 {
+    unit 0 {
+        family inet {
+            address 172.30.33.163/24;
+        }
+    }
+}
+ge-0/0/1 {
+    vlan-tagging;
+    unit 400 {
+        vlan-id 400;
+        family inet {
+            address 1.1.4.1/30;
+        }
+    }
+}
+ge-0/0/2 {
+    vlan-tagging;
+    unit 401 {
+        vlan-id 401;
+        family inet {
+            address 192.168.4.1/24;
+        }
+    }
+}
+
+lab@163> show security policies 
+Default policy: deny-all
+From zone: KADRY, To zone: INTERNET
+  Policy: DOMYSLNA, State: enabled, Index: 4, Scope Policy: 0, Sequence number: 1
+    Source addresses: any
+    Destination addresses: any
+    Applications: any
+    Action: deny, log
+  Policy: POLITYKA1, State: enabled, Index: 5, Scope Policy: 0, Sequence number: 2
+    Source addresses: any
+    Destination addresses: any
+    Applications: junos-icmp-ping
+    Action: permit, log
+  Policy: POLITYKAHTTP, State: enabled, Index: 6, Scope Policy: 0, Sequence number: 3
+    Source addresses: KOMP-KADRY-ADD192.168.4.10
+    Destination addresses: any
+    Applications: junos-http
+    Action: permit
+From zone: INTERNET, To zone: KADRY
+  Policy: POLITYKAFTP, State: enabled, Index: 7, Scope Policy: 0, Sequence number: 1
+    Source addresses: 1.1.4.2
+    Destination addresses: KOMP-KADRY-ADD192.168.4.10
+    Applications: junos-ftp
+    Action: permit
+
+lab@163> ping 192.168.4.10 
+PING 192.168.4.10 (192.168.4.10): 56 data bytes
+64 bytes from 192.168.4.10: icmp_seq=0 ttl=64 time=3.515 ms
+64 bytes from 192.168.4.10: icmp_seq=1 ttl=64 time=141.297 ms
+64 bytes from 192.168.4.10: icmp_seq=2 ttl=64 time=2.567 ms
+^C
+--- 192.168.4.10 ping statistics ---
+3 packets transmitted, 3 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 2.567/49.126/141.297/65.176 ms
+
+lab@163> ping 1.1.4.2         
+PING 1.1.4.2 (1.1.4.2): 56 data bytes
+64 bytes from 1.1.4.2: icmp_seq=0 ttl=64 time=1.522 ms
+64 bytes from 1.1.4.2: icmp_seq=1 ttl=64 time=1.182 ms
+^C
+--- 1.1.4.2 ping statistics ---
+2 packets transmitted, 2 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 1.182/1.352/1.522/0.170 ms
+
+[edit]
+lab@163# run show security nat source rule all 
+Total rules: 2
+Total referenced IPv4/IPv6 ip-prefixes: 2/0
+ 
+source NAT rule: KADRY                Rule-set: KADRY-INTERNET 
+  Rule-Id                    : 1  
+  Rule position              : 1
+  From zone                  : KADRY
+  To zone                    : INTERNET
+    Destination addresses    : 1.1.4.0         - 1.1.4.255
+    Destination port         : 0               - 0
+  Action                        : interface 
+    Persistent NAT type         : N/A              
+    Persistent NAT mapping type : address-port-mapping 
+    Inactivity timeout          : 0
+    Max session number          : 0 
+  Translation hits           : 230
+ 
+source NAT rule: KADRY-1              Rule-set: KADRY-INTERNET 
+  Rule-Id                    : 2  
+  Rule position              : 2
+  From zone                  : KADRY
+  To zone                    : INTERNET
+    Destination addresses    : 7.7.4.0         - 7.7.4.7
+    Destination port         : 0               - 0
+  Action                        : POOL-7_7_10_0_29 
+    Persistent NAT type         : N/A              
+    Persistent NAT mapping type : address-port-mapping 
+    Inactivity timeout          : 0
+    Max session number          : 0 
+  Translation hits           : 0
+
+[edit]
+lab@163# run show security nat source pool all    
+Total pools: 1
+ 
+Pool name          : POOL-7_7_10_0_29
+Pool id            : 4
+Routing instance   : default
+Host address base  : 0.0.0.0
+Port               : [1024, 63487] 
+port overloading   : 1
+Total addresses    : 1
+Translation hits   : 0
+Address range                        Single Ports   Twin Ports 
+            2.2.4.5 - 2.2.4.5            0              0    
+
+lab@163# run show configuration security nat source 
+pool POOL-7_7_10_0_29 {
+    address {
+        2.2.4.5/32;
+    }
+}
+rule-set KADRY-INTERNET {
+    from zone KADRY;
+    to zone INTERNET;
+    rule KADRY {
+        match {
+            destination-address 1.1.4.0/24;
+        }
+        then {
+            source-nat {
+                interface;
+            }
+        }
+    }
+    rule KADRY-1 {
+        match {
+            destination-address 7.7.4.0/29;
+        }
+        then {
+            source-nat {
+                pool {
+                    POOL-7_7_10_0_29;
+                }
+            }
+        }
+    }
+}
+
+

@@ -1,0 +1,92 @@
+Od 13.12.2019
+poprawki
+
+lab@163> show security policies 
+Default policy: deny-all
+From zone: KADRY, To zone: INTERNET
+  Policy: DOMYSLNA, State: enabled, Index: 4, Scope Policy: 0, Sequence number: 1
+    Source addresses: any
+    Destination addresses: any
+    Applications: any
+    Action: deny, log
+  Policy: POLITYKA1, State: enabled, Index: 5, Scope Policy: 0, Sequence number: 2
+    Source addresses: any
+    Destination addresses: any
+    Applications: junos-icmp-ping
+    Action: permit, log
+  Policy: POLITYKAHTTP, State: enabled, Index: 6, Scope Policy: 0, Sequence number: 3
+    Source addresses: KOMP-KADRY-ADD192.168.4.10
+    Destination addresses: any
+    Applications: junos-http
+    Action: permit
+From zone: INTERNET, To zone: KADRY
+  Policy: POLITYKAFTP, State: enabled, Index: 7, Scope Policy: 0, Sequence number: 1
+    Source addresses: 1.1.4.2
+    Destination addresses: KOMP-KADRY-ADD192.168.4.10
+    Applications: junos-ftp
+    Action: permit
+
+lab@163> configure 
+Entering configuration mode
+
+[edit]
+lab@163# insert security policies from-zone KADRY to-zone INTERNET ?  
+Possible completions:
+  after                Insert after given data element
++ apply-groups         Groups from which to inherit configuration data
++ apply-groups-except  Don't inherit configuration data from these groups
+  before               Insert before given data element
+> policy               Define security policy in specified zone-to-zone direction
+[edit]
+lab@163# insert security policies from-zone KADRY to-zone INTERNET policy DOMYSLNA after ?
+Possible completions:
+> policy               Define security policy in specified zone-to-zone direction
+[edit]
+lab@163# insert security policies from-zone KADRY to-zone INTERNET policy DOMYSLNA after policy POLITYKA   
+                                                                                                        ^
+'POLITYKA' is ambiguous.
+Possible completions:
+  <policy-name>        Security policy name
+  POLITYKA1            Security policy name
+  POLITYKAHTTP         Security policy name
+[edit]
+lab@163# insert security policies from-zone KADRY to-zone INTERNET policy DOMYSLNA after policy POLITYKAHTTP 
+
+[edit]
+lab@163# show|compare 
+[edit security policies from-zone KADRY to-zone INTERNET]
+!     policy POLITYKA1 { ... }
+!     policy POLITYKAHTTP { ... }
+
+[edit]
+lab@163# commit 
+commit complete
+
+[edit]
+lab@163# run show security policies 
+Default policy: deny-all
+From zone: KADRY, To zone: INTERNET
+  Policy: POLITYKA1, State: enabled, Index: 5, Scope Policy: 0, Sequence number: 1
+    Source addresses: any
+    Destination addresses: any
+    Applications: junos-icmp-ping
+    Action: permit, log
+  Policy: POLITYKAHTTP, State: enabled, Index: 6, Scope Policy: 0, Sequence number: 2
+    Source addresses: KOMP-KADRY-ADD192.168.4.10
+    Destination addresses: any
+    Applications: junos-http
+    Action: permit
+  Policy: DOMYSLNA, State: enabled, Index: 4, Scope Policy: 0, Sequence number: 3
+    Source addresses: any
+    Destination addresses: any
+    Applications: any
+    Action: deny, log
+From zone: INTERNET, To zone: KADRY
+  Policy: POLITYKAFTP, State: enabled, Index: 7, Scope Policy: 0, Sequence number: 1
+    Source addresses: 1.1.4.2
+    Destination addresses: KOMP-KADRY-ADD192.168.4.10
+    Applications: junos-ftp
+    Action: permit
+
+
+
