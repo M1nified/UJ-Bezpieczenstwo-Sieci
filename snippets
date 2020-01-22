@@ -1,0 +1,56 @@
+# Potwiedzenie:
+commit [confirmed <minutes>]
+
+# Reset firewalla:
+run request system reboot
+
+# Definiowanie stref bezpieczeństwa:
+set security zones security-zone INTERNET interfaces ge/0/0/1.500
+set interfaces ge-0/0/1.500 vlan-id 500
+set interfaces ge-0/0/1.500 family inet address 1.1.5.1/30
+set interfaces ge-0/0/1 vlan-tagging
+
+# Sprawdzenie stref bezpieczeństwa:
+run show security zones
+
+# Konfiguracja wirtualnego routera:
+set routing-instances SERWER6 instance-type virtual-router
+set routing-instances SERWER6 interface ge-0/0/1.600
+set routing-instances SERWER6 routing-options static route 0/0 next-hop 1.1.6.1
+
+# Konfiguracja odpowiedzi firewalla na ping:
+set security zones security-zone INTERNET interfaces ge-0/0/1.600 host-inbound-traffic ping
+
+# Wyświetlenie routingu:
+run show route table SERWER6
+ 
+# Pingowanie do firewalla:
+run ping 1.1.6.1 routing-instance SERWER6
+
+# Definiowanie polityki bezpieczeństwa:
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match source-address any
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match destination-address any
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 match application junos-icmp-ping
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA1 then permit
+
+# Definiowanie polityki bezpieczeństwa z source-address:
+set security zones security-zone KADRY address-book address KOMP-KADRY-ADD192.168.5.10 192.168.5.10/32
+
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA2 match source-address KOMP-KADRY-ADD192.168.5.10
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA2 match destination-address any
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA2 match application junos-http
+set security policies from-zone KADRY to-zone INTERNET policy POLITYKA2 then permit/deny/reject
+
+# Konfiguracja destination NAT:
+set security nat destination rule-set FROM-INTERNET from zone INTERNET  
+set security nat destination pool POCZTA address 192.168.55.5/32
+set security nat destination rule-set FROM-INTERNET rule SERWER1 match destination-address 50.5.1.7/3
+set security nat destination rule-set FROM-INTERNET rule SERWER1 then destination-nat pool POCZTA
+
+# Konfiguracja Source NAT
+set security nat source rule-set KADRY-INTERNET from zone KADRY
+set security nat source rule-set KADRY-INTERNET to zone INTERNET
+set security nat source rule-set KADRY-INTERNET rule KADRY match destination-address 1.1.5.0/24
+set security nat source rule-set KADRY-INTERNET rule KADRY then source-nat interface
+
+
